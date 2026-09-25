@@ -1,0 +1,19 @@
+{
+ "wall_s": 25.542299208929762,
+ "peak_rss_mb": 1369.227264,
+ "config": "smollm2-1.7b-Q3_K_M",
+ "split": "dev",
+ "device": "mac-mini-m4-cpu",
+ "load_s": 0.6167859169654548,
+ "file_mb": 860.181024,
+ "resumed": false,
+ "machine": {
+  "cpu": "Apple M4",
+  "cores_physical": 10,
+  "cores_logical": 10,
+  "ram_gb": 16,
+  "os": "Darwin 27.0.0",
+  "threads": 4,
+  "llama_cpp_commit": "1ab7e5a"
+ }
+}

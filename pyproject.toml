@@ -1,0 +1,33 @@
+[project]
+name = "etb"
+version = "0.1.0"
+description = "Edge Triage Bench: small quantised LLMs vs baselines on CFPB complaint triage"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "pandas",
+  "numpy",
+  "scikit-learn",
+  "matplotlib",
+  "psutil",
+  "httpx",
+  "huggingface_hub",
+  "joblib",
+  # llama.cpp convert_hf_to_gguf.py
+  "torch",
+  "transformers",
+  "sentencepiece",
+  "gguf",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/etb"]

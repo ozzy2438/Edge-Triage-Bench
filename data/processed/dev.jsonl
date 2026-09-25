@@ -1,0 +1,100 @@
+{"id": "test-1007", "text": "I topped up my account and even though it was confirmed at first, the money isn't there anymore! why did this happen, and where did my money go?", "label": "top_up", "intent": "top_up_reverted"}
+{"id": "test-1037", "text": "My top-up has been cancelled.", "label": "top_up", "intent": "top_up_reverted"}
+{"id": "test-106", "text": "The exchange rate would be?", "label": "exchange", "intent": "exchange_rate"}
+{"id": "test-1075", "text": "How come my cash deposit is not showing up. This can't be right. There must be some mistake. Where did my cash go. You better not have lost it as I need this money asap.", "label": "top_up", "intent": "balance_not_updated_after_cheque_or_cash_deposit"}
+{"id": "test-109", "text": "what is the exchange rate?", "label": "exchange", "intent": "exchange_rate"}
+{"id": "test-1118", "text": "What is the payment in my account that I did not do?", "label": "card_payment", "intent": "card_payment_not_recognised"}
+{"id": "test-1155", "text": "Should I just wait until the post office sends a change of address form?", "label": "account", "intent": "edit_personal_details"}
+{"id": "test-1200", "text": "I cannot verify my identity", "label": "account", "intent": "unable_to_verify_identity"}
+{"id": "test-1237", "text": "Why can't I verify my identity?", "label": "account", "intent": "unable_to_verify_identity"}
+{"id": "test-1291", "text": "I'd rather get a Mastercard", "label": "card_setup", "intent": "visa_or_mastercard"}
+{"id": "test-1315", "text": "What major card payments are accepted?", "label": "card_setup", "intent": "visa_or_mastercard"}
+{"id": "test-1319", "text": "Is it possible to get a Visa here?", "label": "card_setup", "intent": "visa_or_mastercard"}
+{"id": "test-134", "text": "I bought an item and noticed the exchange rate was not correct.", "label": "card_payment", "intent": "card_payment_wrong_exchange_rate"}
+{"id": "test-1377", "text": "How many disposable cards is the limit?", "label": "card_setup", "intent": "disposable_card_limits"}
+{"id": "test-1388", "text": "I need to create several disposable cards per day.", "label": "card_setup", "intent": "disposable_card_limits"}
+{"id": "test-1390", "text": "How many disposable cards can I own?", "label": "card_setup", "intent": "disposable_card_limits"}
+{"id": "test-1442", "text": "Where is the closest Mastercard ATM?", "label": "cash_atm", "intent": "atm_support"}
+{"id": "test-1448", "text": "Where are the locations of ATMs that accept this card?", "label": "cash_atm", "intent": "atm_support"}
+{"id": "test-1485", "text": "im so mad right now. theres several charges that I think my x boyfriend made on my card. the companys on the website wouldn't refund me my money, they told me to contact my bank. DO something please.", "label": "card_payment", "intent": "direct_debit_payment_not_recognised"}
+{"id": "test-1516", "text": "Someone has taken my money and I don't know who", "label": "card_payment", "intent": "direct_debit_payment_not_recognised"}
+{"id": "test-1521", "text": "I can't find my password", "label": "card_problem", "intent": "passcode_forgotten"}
+{"id": "test-1527", "text": "Something is wrong with my passcode", "label": "card_problem", "intent": "passcode_forgotten"}
+{"id": "test-1540", "text": "What should I do if the passcode doesn't work for me?", "label": "card_problem", "intent": "passcode_forgotten"}
+{"id": "test-1551", "text": "Can I reset my password?  I don't know what it is.", "label": "card_problem", "intent": "passcode_forgotten"}
+{"id": "test-1594", "text": "Oh my goodness, my card has been declined twice at ATM! I tried two different ATM, but each one declined my card! Can you tell me what's going on with my account?", "label": "cash_atm", "intent": "declined_cash_withdrawal"}
+{"id": "test-1598", "text": "The cash I tried to draw from the ATM was not approved.", "label": "cash_atm", "intent": "declined_cash_withdrawal"}
+{"id": "test-1600", "text": "My card payment is still on hold, why is it so?", "label": "card_payment", "intent": "pending_card_payment"}
+{"id": "test-1620", "text": "Why is a payment showing up on my card as pending?", "label": "card_payment", "intent": "pending_card_payment"}
+{"id": "test-1631", "text": "My card is still pending, I've been waiting a while.", "label": "card_payment", "intent": "pending_card_payment"}
+{"id": "test-1680", "text": "Hello- It is urgent I get a refund on this product. The merchant has not been helpful, what can I do now to get this resolved ASAP?", "label": "card_payment", "intent": "request_refund"}
+{"id": "test-175", "text": "There is an extra $1 charge", "label": "card_payment", "intent": "extra_charge_on_statement"}
+{"id": "test-1774", "text": "Hi, As suggested by you, i have asked the seller to initiate the refund, it has been a week and i haven't received my money. Please advise.", "label": "card_payment", "intent": "Refund_not_showing_up"}
+{"id": "test-1806", "text": "Why did it decline my payment?", "label": "card_problem", "intent": "declined_card_payment"}
+{"id": "test-1818", "text": "Something is wrong with my payment account since it has been declined", "label": "card_problem", "intent": "declined_card_payment"}
+{"id": "test-1838", "text": "How do you fix  my card payment?", "label": "card_problem", "intent": "declined_card_payment"}
+{"id": "test-1852", "text": "My transfer is still coming up as pending.", "label": "transfer", "intent": "pending_transfer"}
+{"id": "test-1901", "text": "Can you delete my account please?", "label": "account", "intent": "terminate_account"}
+{"id": "test-1952", "text": "My card has been swallowed by an ATM", "label": "card_problem", "intent": "card_swallowed"}
+{"id": "test-1984", "text": "More than one time this week, I have been charged more than once for the same transaction. Please correct the issue and refund the duplicate charges.", "label": "card_payment", "intent": "transaction_charged_twice"}
+{"id": "test-2004", "text": "where to funds come from", "label": "account", "intent": "verify_source_of_funds"}
+{"id": "test-2019", "text": "What is the source of my money?", "label": "account", "intent": "verify_source_of_funds"}
+{"id": "test-2020", "text": "Where can I find the source of my available money?", "label": "account", "intent": "verify_source_of_funds"}
+{"id": "test-2073", "text": "How long is it going to take for my funds to show in my account?", "label": "transfer", "intent": "transfer_timing"}
+{"id": "test-2098", "text": "I have a payment listed as cancelled.", "label": "card_payment", "intent": "reverted_card_payment?"}
+{"id": "test-2165", "text": "Can you please help me with this exchange?  I am trying to get crypto and the app won't let me.", "label": "transfer", "intent": "beneficiary_not_allowed"}
+{"id": "test-2177", "text": "I have a cryptocurrency exchange that won't go through. Please help me process it.", "label": "transfer", "intent": "beneficiary_not_allowed"}
+{"id": "test-2243", "text": "Can I get my salary through this?", "label": "transfer", "intent": "receiving_money"}
+{"id": "test-2246", "text": "Do I need to choose GBP to get my salary deposited properly?", "label": "transfer", "intent": "receiving_money"}
+{"id": "test-2257", "text": "What different ways are there for someone to send me money?", "label": "transfer", "intent": "receiving_money"}
+{"id": "test-2293", "text": "Why has my transfer failed?", "label": "transfer", "intent": "failed_transfer"}
+{"id": "test-230", "text": "Cash withdrawal still pending?", "label": "cash_atm", "intent": "pending_cash_withdrawal"}
+{"id": "test-2353", "text": "I want to use bank transfer for topping up my account. How is it handled?", "label": "transfer", "intent": "transfer_into_account"}
+{"id": "test-2358", "text": "I would like to transfer money from my other bank account into this one.", "label": "transfer", "intent": "transfer_into_account"}
+{"id": "test-2369", "text": "Why do you need code verification for my top up?", "label": "top_up", "intent": "verify_top_up"}
+{"id": "test-2387", "text": "Is there a verification code for the top-up card?", "label": "top_up", "intent": "verify_top_up"}
+{"id": "test-241", "text": "I want to know how many different currencies my money can be in", "label": "exchange", "intent": "fiat_currency_support"}
+{"id": "test-2418", "text": "Can I give a second card to my daughter?", "label": "card_setup", "intent": "getting_spare_card"}
+{"id": "test-2447", "text": "I'm looking for the cash deposit top up option but can't find it. Can you help me?", "label": "top_up", "intent": "top_up_by_cash_or_cheque"}
+{"id": "test-2457", "text": "I'm looking for the option to top up by cheque.", "label": "top_up", "intent": "top_up_by_cash_or_cheque"}
+{"id": "test-2458", "text": "What locations can I top up with cash?", "label": "top_up", "intent": "top_up_by_cash_or_cheque"}
+{"id": "test-2470", "text": "How do I deposit cash into my account?", "label": "top_up", "intent": "top_up_by_cash_or_cheque"}
+{"id": "test-2521", "text": "My disposable virtual card doesn't seem to work", "label": "card_problem", "intent": "virtual_card_not_working"}
+{"id": "test-2546", "text": "My payments from my virtual card keep getting rejected.", "label": "card_problem", "intent": "virtual_card_not_working"}
+{"id": "test-2550", "text": "How do I get my disposable virtual card to work?", "label": "card_problem", "intent": "virtual_card_not_working"}
+{"id": "test-2567", "text": "I attempted to get money using a foreign currency at an ATM but the rate was highly inaccurate!", "label": "cash_atm", "intent": "wrong_exchange_rate_for_cash_withdrawal"}
+{"id": "test-257", "text": "When considering currency holdings and exchanges, what fiat currencies are supported?", "label": "exchange", "intent": "fiat_currency_support"}
+{"id": "test-2581", "text": "I feel like too much money was taken during my currency exchange.", "label": "cash_atm", "intent": "wrong_exchange_rate_for_cash_withdrawal"}
+{"id": "test-2586", "text": "My cash withdrawal charged me the wrong exchange rate", "label": "cash_atm", "intent": "wrong_exchange_rate_for_cash_withdrawal"}
+{"id": "test-2617", "text": "how do i get a virtual card for one time use", "label": "card_setup", "intent": "get_disposable_virtual_card"}
+{"id": "test-2631", "text": "Is there a disposable virtual card I can order?", "label": "card_setup", "intent": "get_disposable_virtual_card"}
+{"id": "test-2660", "text": "The app denied my top-up", "label": "top_up", "intent": "top_up_failed"}
+{"id": "test-2716", "text": "I need to know the time frame that is typical for a transfer from a UK account. I just made a transfer and it doesn't appear. I want to make sure everything is okay.", "label": "transfer", "intent": "balance_not_updated_after_bank_transfer"}
+{"id": "test-2717", "text": "Why doesn't my balance reflect my transfer", "label": "transfer", "intent": "balance_not_updated_after_bank_transfer"}
+{"id": "test-2769", "text": "whats the exchange charge", "label": "exchange", "intent": "exchange_charge"}
+{"id": "test-2825", "text": "Does topping up my card have a fee?", "label": "top_up", "intent": "top_up_by_card_charge"}
+{"id": "test-2840", "text": "Could you please activate my card", "label": "card_setup", "intent": "activate_my_card"}
+{"id": "test-2841", "text": "I need to activate my card can you do that now?", "label": "card_setup", "intent": "activate_my_card"}
+{"id": "test-2893", "text": "Hi, I am calling about a recent transaction that has happened on my account.  I recently went to the ATM, and tried to make a withdrawal on my account.  I just happened to check my transaction slip and noticed a fee for my withdrawal.  How can I resolve this, I didn't know fees were charged for this type of action.", "label": "cash_atm", "intent": "cash_withdrawal_charge"}
+{"id": "test-2923", "text": "What do I do when my card expires?", "label": "card_setup", "intent": "card_about_to_expire"}
+{"id": "test-293", "text": "What is the difference between standard and express delivery?", "label": "card_setup", "intent": "card_delivery_estimate"}
+{"id": "test-2983", "text": "Can I use my American Express stored in Apple Pay to top up?", "label": "card_payment", "intent": "apple_pay_or_google_pay"}
+{"id": "test-3020", "text": "How does my identity get verified?", "label": "account", "intent": "verify_my_identity"}
+{"id": "test-3027", "text": "do I need anything for the identity check?", "label": "account", "intent": "verify_my_identity"}
+{"id": "test-3063", "text": "What countries are you currently in?", "label": "exchange", "intent": "country_support"}
+{"id": "test-356", "text": "Is there a way to top-up automatically?", "label": "top_up", "intent": "automatic_top_up"}
+{"id": "test-380", "text": "My actual card isn't working.", "label": "card_problem", "intent": "card_not_working"}
+{"id": "test-440", "text": "My entire gym bag, including my wallet, was stolen out of my locker today. Everything in my wallet is gone - how do I block the card to make it can't be used?", "label": "card_problem", "intent": "lost_or_stolen_card"}
+{"id": "test-47", "text": "How do I add the card to my account?", "label": "card_setup", "intent": "card_linking"}
+{"id": "test-541", "text": "Help! I forgot my PIN and have been locked out of using my card.", "label": "card_problem", "intent": "pin_blocked"}
+{"id": "test-55", "text": "Hello, I found the card I misplaced and I need to reactive it, how do I do that?", "label": "card_setup", "intent": "card_linking"}
+{"id": "test-600", "text": "how much do you charge to accept transfers", "label": "top_up", "intent": "top_up_by_bank_transfer_charge"}
+{"id": "test-666", "text": "OMG!  I'm trying to load my card and it wont top up!  I desperately need the money either on my card or in my bank, where is it?", "label": "top_up", "intent": "pending_top_up"}
+{"id": "test-680", "text": "I made a transaction this morning and would like to revert it.", "label": "transfer", "intent": "cancel_transfer"}
+{"id": "test-807", "text": "There is an unauthorized fee.", "label": "card_payment", "intent": "card_payment_fee_charged"}
+{"id": "test-876", "text": "How long until my friend receives my transaction?", "label": "transfer", "intent": "transfer_not_received_by_recipient"}
+{"id": "test-900", "text": "When adding money, what are the currencies you take?", "label": "exchange", "intent": "supported_cards_and_currencies"}
+{"id": "test-926", "text": "Can you tell me how to order a virtual card?", "label": "card_setup", "intent": "getting_virtual_card"}
+{"id": "test-963", "text": "It will be fine to use at any establishment that accepts Mastercard.", "label": "card_problem", "intent": "card_acceptance"}
+{"id": "test-97", "text": "Will I get a curreng foreign exchange rate?", "label": "exchange", "intent": "exchange_rate"}
+{"id": "test-990", "text": "places i can use the card", "label": "card_problem", "intent": "card_acceptance"}

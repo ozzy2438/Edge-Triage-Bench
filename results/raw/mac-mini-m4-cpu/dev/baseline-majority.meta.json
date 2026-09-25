@@ -1,0 +1,18 @@
+{
+ "config": "baseline-majority",
+ "split": "dev",
+ "device": "mac-mini-m4-cpu",
+ "load_s": 7.52920750528574e-05,
+ "wall_s": 0.7234321250580251,
+ "peak_rss_mb": 162.185216,
+ "file_mb": 5.6e-05,
+ "machine": {
+  "cpu": "Apple M4",
+  "cores_physical": 10,
+  "cores_logical": 10,
+  "ram_gb": 16,
+  "os": "Darwin 27.0.0",
+  "threads": 4,
+  "llama_cpp_commit": "1ab7e5a"
+ }
+}

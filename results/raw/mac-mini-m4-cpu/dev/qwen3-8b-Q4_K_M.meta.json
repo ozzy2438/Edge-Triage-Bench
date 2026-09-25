@@ -1,0 +1,19 @@
+{
+ "wall_s": 62.39294695784338,
+ "peak_rss_mb": 5351.948288,
+ "config": "qwen3-8b-Q4_K_M",
+ "split": "dev",
+ "device": "mac-mini-m4-cpu",
+ "load_s": 4.329258499899879,
+ "file_mb": 5027.783584,
+ "resumed": false,
+ "machine": {
+  "cpu": "Apple M4",
+  "cores_physical": 10,
+  "cores_logical": 10,
+  "ram_gb": 16,
+  "os": "Darwin 27.0.0",
+  "threads": 4,
+  "llama_cpp_commit": "1ab7e5a"
+ }
+}
