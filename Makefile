@@ -8,8 +8,9 @@ all: llama data models bench report
 llama:
 	test -d vendor/llama.cpp || git clone https://github.com/ggml-org/llama.cpp vendor/llama.cpp
 	cd vendor/llama.cpp && git fetch -q origin $(LLAMA_COMMIT) && git checkout -q $(LLAMA_COMMIT)
-	cd vendor/llama.cpp && cmake -B build -DGGML_METAL=OFF -DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release \
-	  && cmake --build build -j 8 --target llama-server llama-quantize
+	cd vendor/llama.cpp && cmake -B build -DGGML_METAL=OFF -DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release
+	cd vendor/llama.cpp && cmake --build build -j 8 --target llama-server llama-quantize \
+	  || cmake --build build -j 8 --target llama-server llama-quantize
 
 data:
 	$(PY) etb.data
