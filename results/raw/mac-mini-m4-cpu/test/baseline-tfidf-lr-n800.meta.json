@@ -1,0 +1,26 @@
+{
+ "config": "baseline-tfidf-lr-n800",
+ "split": "test",
+ "device": "mac-mini-m4-cpu",
+ "load_s": 0.0014528750907629728,
+ "wall_s": 0.8069447088055313,
+ "peak_rss_mb": 162.103296,
+ "file_mb": 0.140812,
+ "machine": {
+  "cpu": "Apple M4",
+  "cores_physical": 10,
+  "cores_logical": 10,
+  "ram_gb": 16,
+  "os": "Darwin 27.0.0",
+  "threads": 4,
+  "llama_cpp_commit": "1ab7e5a",
+  "llama_cpp_build": {
+   "CMAKE_BUILD_TYPE": "Release",
+   "GGML_METAL": "OFF",
+   "GGML_BLAS": "ON",
+   "GGML_BLAS_VENDOR": "Apple",
+   "GGML_CPU_REPACK": "ON",
+   "GGML_NATIVE": "ON"
+  }
+ }
+}

@@ -5,6 +5,7 @@ import sys
 import matplotlib
 
 matplotlib.use("Agg")
+import matplotlib.ticker
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -57,21 +58,29 @@ def figures(df, recs, best):
     # 1. headline: macro-F1 vs peak RSS and vs p50 latency
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharey=True)
     front = pareto(df)
-    for ax, x, xl in [(axes[0], "peak_rss_mb", "Peak RSS (MB, log)"), (axes[1], "lat_p50_ms", "Latency p50 per item (ms, log)")]:
+    curve = [f"baseline-tfidf-lr-n{n}" for n in CURVE if f"baseline-tfidf-lr-n{n}" in df.index]
+    for ax, x, xl in [(axes[0], "peak_rss_mb", "Peak RSS (MB, log)"), (axes[1], "lat_p50_ms", "Warm latency p50 per item (ms, log)")]:
         for m, g in llm.groupby("model"):
             ax.scatter(g[x], g.macro_f1, s=40, color=COLORS[m], label=m + (" (reference)" if m == REFERENCE else ""), zorder=3)
-            for cfg, r in g.iterrows():
-                ax.annotate(r.quant, (r[x], r.macro_f1), fontsize=6.5, xytext=(3, 3), textcoords="offset points")
+            if x == "peak_rss_mb":
+                for cfg, r in g.iterrows():
+                    ax.annotate(r.quant, (r[x], r.macro_f1), fontsize=6.5, xytext=(3, 3), textcoords="offset points")
+        ax.scatter(df.loc[curve, x], df.loc[curve, "macro_f1"], marker="*", s=70, color="grey",
+                   label="TF-IDF + LogReg (n=" + "/".join(c.rsplit("n", 1)[1] for c in curve) + ")", zorder=4)
         for cfg, mk in [("baseline-tfidf-lr", "*"), ("baseline-majority", "X")]:
             if cfg in df.index:
                 r = df.loc[cfg]
-                ax.scatter(max(r[x], 1e-3), r.macro_f1, marker=mk, s=140, color="black", label=label(cfg), zorder=4)
+                ax.scatter(max(r[x], 0.1), r.macro_f1, marker=mk, s=140, color="black", label=label(cfg), zorder=4)
         if x == "peak_rss_mb":
             f = df.loc[front].sort_values(x)
             ax.step(f[x], f.macro_f1, where="post", color="orange", lw=1, ls="--", label="Pareto frontier", zorder=2)
         ax.set_xscale("log")
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
         ax.set_xlabel(xl)
         ax.grid(alpha=0.3)
+    axes[1].set_xlim(0.05, None)
+    axes[1].annotate("majority plotted at 0.1 ms (actual ~0)", (0.1, 0.03), fontsize=6.5, xytext=(6, 4), textcoords="offset points")
     axes[0].set_ylabel("Macro-F1 (test, n=500)")
     axes[0].legend(fontsize=7, loc="lower right")
     fig.suptitle("Accuracy vs memory and latency (CPU-only, 4 threads, Apple M4)", fontsize=10)
@@ -240,6 +249,9 @@ def values(df, recs, machine, best, qp, lc, cross) -> dict:
                 v[f"{k}__{m.replace('@', '')}"] = r[m]
         f1, worst = min((r[f"f1_{c}"], c) for c in LABEL_NAMES)
         v[f"{k}__worst_class"], v[f"{k}__worst_f1"] = worst, f1
+        v[f"{k}__share_conf90"] = float(np.mean([x["conf"] >= 0.9 for x in recs[cfg]]))
+        wrong = pd.Series([x["pred"] for x in recs[cfg] if x["label"] == worst and x["pred"] != worst]).value_counts()
+        v[f"{k}__worst_confused"] = " and ".join(f"`{c}` ({n})" for c, n in wrong.head(2).items())
     return v
 
 

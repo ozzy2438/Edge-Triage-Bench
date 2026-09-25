@@ -1,0 +1,5 @@
+n,config,macro_f1,f1_lo,f1_hi,vs_best_diff,vs_best_lo,vs_best_hi,vs_best_p
+8,baseline-tfidf-lr-n8,0.2643,0.2215,0.3005,-0.5034,-0.5529,-0.4532,0.0
+80,baseline-tfidf-lr-n80,0.5234,0.477,0.5657,-0.2444,-0.2958,-0.1939,0.0
+800,baseline-tfidf-lr-n800,0.8692,0.8345,0.8966,0.1015,0.0588,0.1451,0.0
+9997,baseline-tfidf-lr,0.9498,0.9296,0.9673,0.1821,0.1452,0.2209,0.0
