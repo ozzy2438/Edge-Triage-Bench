@@ -82,7 +82,7 @@ make test     # pytest: metric maths vs scikit-learn, label parsing, split integ
 
 Requirements: `uv`, `cmake`, git, and about 60 GB of free disk space (mostly the Qwen3-8B F16 intermediate). On the recorded machine the warm test pass took 26 min and the cold pass about 22 min, so the cold pass is 46% of the two combined (cold p50 × 50 items). Model loads, warm-ups, downloads and quantisation come on top of that.
 
-`make smoke` not run yet.
+`make smoke` ran from a fresh clone: qwen3-0.6b-Q4_K_M on 20 dev items (macro-F1 0.505, median 60 ms) and TF-IDF on the same items (macro-F1 0.671).
 
 - Machine: Apple M4, 10 cores, 16 GB RAM, Darwin 27.0.0.
 - Runtime: llama.cpp `1ab7e5a` (Release, GGML_METAL=OFF, GGML_BLAS=ON (Apple), GGML_CPU_REPACK=ON), `llama-server -ngl 0 -t 4 -tb 4`.

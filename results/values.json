@@ -9,7 +9,7 @@
  "warm_min": 26.100513949299543,
  "cold_min": 22.327964687622927,
  "cold_share": 0.46105030172473377,
- "smoke_line": "not run yet.",
+ "smoke_line": "ran from a fresh clone: qwen3-0.6b-Q4_K_M on 20 dev items (macro-F1 0.505, median 60 ms) and TF-IDF on the same items (macro-F1 0.671).",
  "pair__qwen3_06b__Q8_0": 0.005568200200983586,
  "pair__qwen3_06b__Q8_0__p": 0.446,
  "pair__qwen3_06b__Q5_K_M": -0.07476771763037726,

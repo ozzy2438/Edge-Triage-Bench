@@ -1,0 +1,9 @@
+{
+ "config": "qwen3-0.6b-Q4_K_M",
+ "n": 20,
+ "split": "dev",
+ "llm_macro_f1": 0.5047619047619047,
+ "llm_lat_p50_ms": 60.46254199463874,
+ "tfidf_macro_f1": 0.6707792207792207,
+ "invalid": 0
+}
