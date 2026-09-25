@@ -8,11 +8,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import subprocess
+
+import numpy as np
+
+from etb.baselines import CURVE
 from etb.configs import DEVICE, FIGS, MODELS, QUANTS, RAW, REFERENCE, RESULTS, ROOT, model_of
 from etb.data import LABEL_NAMES
-from etb.metrics import reliability, risk_coverage, summarise
+from etb.metrics import paired_bootstrap, reliability, risk_coverage, summarise
+from etb.run import load_split
 
-BASE = {"baseline-majority": "Majority class", "baseline-tfidf-lr": "TF-IDF + LogReg"}
+BASE = {"baseline-majority": "Majority class", "baseline-tfidf-lr": "TF-IDF + LogReg (full train)",
+        **{f"baseline-tfidf-lr-n{n}": f"TF-IDF + LogReg (n={n})" for n in CURVE}}
 COLORS = dict(zip(MODELS, ["#1f77b4", "#2ca02c", "#d62728", "#7f7f7f"]))
 
 
@@ -23,9 +30,11 @@ def load(split: str, device: str = DEVICE):
         meta = json.loads(p.with_suffix(".meta.json").read_text())
         cfg = p.stem
         model, quant = ("baseline", cfg) if cfg in BASE else (model_of(cfg), cfg[len(model_of(cfg)) + 1:])
-        recs[cfg] = r
+        recs[cfg] = sorted(r, key=lambda x: x["id"])
         rows.append({"config": cfg, "model": model, "quant": quant, "device": device,
-                     **{k: meta[k] for k in ("file_mb", "load_s", "peak_rss_mb", "wall_s")}, **summarise(r)})
+                     **{k: meta.get(k, np.nan) for k in ("file_mb", "load_s", "peak_rss_mb", "wall_s", "cold_p50_ms",
+                                                         "cold_p95_ms", "cold_prompt_n", "cold_warm_agree")},
+                     **summarise(r)})
     return pd.DataFrame(rows).set_index("config"), recs, meta["machine"]
 
 
@@ -114,26 +123,119 @@ def figures(df, recs, best):
     fig.savefig(FIGS / "reliability.png", dpi=150)
 
 
-def table(df) -> str:
-    cols = ["macro_f1", "accuracy", "sel_acc@70", "ece", "invalid_rate", "file_mb", "peak_rss_mb", "lat_p50_ms", "lat_p95_ms"]
-    head = "| Config | Macro-F1 [95% CI] | Acc | Acc@70% cov | ECE | Invalid | File MB | Peak RSS MB | p50 ms | p95 ms |"
-    L = [head, "|" + "---|" * 10]
-    for cfg, r in df.sort_values("macro_f1", ascending=False).iterrows():
-        L.append(f"| {label(cfg)} | {r.macro_f1:.3f} [{r.f1_lo:.3f}, {r.f1_hi:.3f}] | {r.accuracy:.3f} | "
-                 f"{r['sel_acc@70']:.3f} | {r.ece:.3f} | {r.invalid_rate:.1%} | {r.file_mb:,.1f} | {r.peak_rss_mb:,.0f} | "
-                 f"{r.lat_p50_ms:.1f} | {r.lat_p95_ms:.1f} |")
+def paired(recs, a, b) -> dict:
+    y = [r["label"] for r in recs[a]]
+    assert y == [r["label"] for r in recs[b]]
+    return paired_bootstrap(y, [r["pred"] or "INVALID" for r in recs[a]], [r["pred"] or "INVALID" for r in recs[b]])
+
+
+def quant_pairs(df, recs) -> pd.DataFrame:
+    """Paired bootstrap of macro-F1 between adjacent quant levels of each small model."""
+    rows = []
+    for m in MODELS:
+        if m == REFERENCE:
+            continue
+        for hi, lo in zip(QUANTS, QUANTS[1:]):
+            a, b = f"{m}-{hi}", f"{m}-{lo}"
+            if a in recs and b in recs:
+                rows.append({"model": m, "from": hi, "to": lo, **paired(recs, b, a)})
+    return pd.DataFrame(rows)
+
+
+def learning_curve(df, recs, best) -> tuple[pd.DataFrame, float | None]:
+    """TF-IDF macro-F1 by training size, paired against the best small LLM; interpolated crossing point (log n)."""
+    n_full = len(load_split("train"))
+    pts = [(n, f"baseline-tfidf-lr-n{n}") for n in CURVE] + [(n_full, "baseline-tfidf-lr")]
+    rows = [{"n": n, "config": c, "macro_f1": df.loc[c].macro_f1, "f1_lo": df.loc[c].f1_lo, "f1_hi": df.loc[c].f1_hi,
+             **{f"vs_best_{k}": v for k, v in paired(recs, c, best).items()}} for n, c in pts if c in df.index]
+    lc = pd.DataFrame(rows)
+    target, cross = df.loc[best].macro_f1, None
+    for (n0, f0), (n1, f1) in zip(lc[["n", "macro_f1"]].values, lc[["n", "macro_f1"]].values[1:]):
+        if f0 < target <= f1:
+            cross = float(np.exp(np.log(n0) + (target - f0) / (f1 - f0) * (np.log(n1) - np.log(n0))))
+            break
+    if cross is None and len(lc) and lc.macro_f1.iloc[0] >= target:
+        cross = float(lc.n.iloc[0])
+    return lc, cross
+
+
+def lc_figure(df, lc, best, cross):
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.errorbar(lc.n, lc.macro_f1, yerr=[lc.macro_f1 - lc.f1_lo, lc.f1_hi - lc.macro_f1], marker="*", ms=9,
+                color="black", capsize=3, label="TF-IDF + LogReg")
+    for cfg, ls in [(best, "-"), (f"{REFERENCE}-Q4_K_M", ":")]:
+        if cfg in df.index:
+            r = df.loc[cfg]
+            ax.axhline(r.macro_f1, color=COLORS[model_of(cfg)], ls=ls, label=f"{cfg} (8-shot)")
+            ax.axhspan(r.f1_lo, r.f1_hi, color=COLORS[model_of(cfg)], alpha=0.1)
+    if cross:
+        ax.axvline(cross, color="orange", ls="--", lw=1, label=f"crossing = {cross:,.0f} examples")
+    ax.set_xscale("log")
+    ax.set_xlabel("TF-IDF training examples (log; n=8 = the LLMs' few-shot examples)")
+    ax.set_ylabel("Macro-F1 (test, 95% CI)")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=7, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(FIGS / "learning_curve.png", dpi=150)
+
+
+def md(df: pd.DataFrame, fmt: dict) -> str:
+    L = ["| " + " | ".join(fmt) + " |", "|" + "---|" * len(fmt)]
+    L += ["| " + " | ".join(f(r) for f in fmt.values()) + " |" for _, r in df.iterrows()]
     return "\n".join(L)
 
 
-def values(df, recs, machine, best) -> dict:
+def ms(x) -> str:
+    return "–" if pd.isna(x) else f"{x:,.1f}"
+
+
+def table(df) -> str:
+    return md(df.sort_values("macro_f1", ascending=False).reset_index(), {
+        "Config": lambda r: label(r.config),
+        "Macro-F1 [95% CI]": lambda r: f"{r.macro_f1:.3f} [{r.f1_lo:.3f}, {r.f1_hi:.3f}]",
+        "Acc": lambda r: f"{r.accuracy:.3f}",
+        "Acc @50/70/90% cov": lambda r: f"{r['sel_acc@50']:.3f} / {r['sel_acc@70']:.3f} / {r['sel_acc@90']:.3f}",
+        "AURC": lambda r: f"{r.aurc:.3f}", "ECE": lambda r: f"{r.ece:.3f}", "Invalid": lambda r: f"{r.invalid_rate:.1%}",
+        "File MB": lambda r: f"{r.file_mb:,.1f}", "Peak RSS MB": lambda r: f"{r.peak_rss_mb:,.0f}",
+        "Warm p50 / p95 ms": lambda r: f"{ms(r.lat_p50_ms)} / {ms(r.lat_p95_ms)}",
+        "Cold p50 / p95 ms": lambda r: f"{ms(r.cold_p50_ms)} / {ms(r.cold_p95_ms)}"})
+
+
+def pairs_table(qp) -> str:
+    return md(qp, {"Model": lambda r: r.model, "Step": lambda r: f"{r['from']} → {r['to']}",
+                   "ΔMacro-F1 [95% CI]": lambda r: f"{r['diff']:+.3f} [{r.lo:+.3f}, {r.hi:+.3f}]",
+                   "p": lambda r: f"{r.p:.3f}", "Significant (CI excludes 0)": lambda r: "yes" if r.lo > 0 or r.hi < 0 else "no"})
+
+
+def lc_table(lc, best) -> str:
+    return md(lc, {"Train examples": lambda r: f"{int(r.n):,}", "Macro-F1 [95% CI]": lambda r: f"{r.macro_f1:.3f} [{r.f1_lo:.3f}, {r.f1_hi:.3f}]",
+                   f"Δ vs {best} [95% CI]": lambda r: f"{r.vs_best_diff:+.3f} [{r.vs_best_lo:+.3f}, {r.vs_best_hi:+.3f}]",
+                   "p": lambda r: f"{r.vs_best_p:.3f}"})
+
+
+def values(df, recs, machine, best, qp, lc, cross) -> dict:
     """Named numbers available to the README/MEMO templates."""
-    v = {"table": table(df), "best": best, "machine": f"{machine['cpu']}, {machine['cores_logical']} cores, "
-         f"{machine['ram_gb']} GB RAM, {machine['os']}, llama.cpp `{machine['llama_cpp_commit']}`, {machine['threads']} threads",
-         "total_wall_min": df.wall_s.sum() / 60}
+    b = machine.get("llama_cpp_build", {})
+    v = {"table": table(df), "pairs_table": pairs_table(qp), "lc_table": lc_table(lc, best), "best": best,
+         "crossing_n": cross if cross is not None else float("nan"),
+         "protocol_commit": subprocess.run(["git", "log", "-1", "--format=%h", "--", "PROTOCOL.md"], cwd=ROOT,
+                                           capture_output=True, text=True).stdout.strip(),
+         "machine": f"{machine['cpu']}, {machine['cores_logical']} cores, {machine['ram_gb']} GB RAM, {machine['os']}",
+         "runtime": f"llama.cpp `{machine['llama_cpp_commit']}` ({b.get('CMAKE_BUILD_TYPE')}, GGML_METAL={b.get('GGML_METAL')}, "
+                    f"GGML_BLAS={b.get('GGML_BLAS')} ({b.get('GGML_BLAS_VENDOR')}), GGML_CPU_REPACK={b.get('GGML_CPU_REPACK')}), "
+                    f"`llama-server -ngl 0 -t {machine['threads']} -tb {machine['threads']}`",
+         "total_wall_min": df.wall_s.sum() / 60, "n_sig_pairs": int(((qp.lo > 0) | (qp.hi < 0)).sum()), "n_pairs": len(qp)}
+    for _, r in qp.iterrows():
+        v[f"pair__{r.model.replace('-', '_').replace('.', '')}__{r['to']}"] = r["diff"]
+        v[f"pair__{r.model.replace('-', '_').replace('.', '')}__{r['to']}__p"] = r.p
+    for _, r in lc.iterrows():
+        v[f"lc__{int(r.n)}__vs_best_p"] = r.vs_best_p
+        v[f"lc__{int(r.n)}__vs_best_diff"] = r.vs_best_diff
     for cfg, r in df.iterrows():
         k = cfg.replace("-", "_").replace(".", "")
         for m in ["macro_f1", "accuracy", "sel_acc@50", "sel_acc@70", "sel_acc@90", "ece", "aurc", "peak_rss_mb",
-                  "lat_p50_ms", "lat_p95_ms", "file_mb", "invalid_rate", "wall_s", "f1_lo", "f1_hi", "label_mass"]:
+                  "lat_p50_ms", "lat_p95_ms", "file_mb", "invalid_rate", "wall_s", "f1_lo", "f1_hi", "label_mass",
+                  "cold_p50_ms", "cold_p95_ms", "cold_prompt_n", "cold_warm_agree", "load_s"]:
             if m in r and pd.notna(r[m]):
                 v[f"{k}__{m.replace('@', '')}"] = r[m]
         f1, worst = min((r[f"f1_{c}"], c) for c in LABEL_NAMES)
@@ -156,12 +258,19 @@ def main(split="test"):
     per_class = [f"f1_{c}" for c in LABEL_NAMES]
     df.drop(columns=per_class).round(4).to_csv(out)
     df[per_class].round(4).to_csv(RESULTS / f"per_class_f1_{split}.csv")
+    qp = quant_pairs(df, recs)
+    lc, cross = learning_curve(df, recs, best)
+    sfx = "" if split == "test" else f"_{split}"
+    qp.round(4).to_csv(RESULTS / f"paired_quant{sfx}.csv", index=False)
+    lc.round(4).to_csv(RESULTS / f"learning_curve{sfx}.csv", index=False)
     if split == "test":
         figures(df, recs, best)
-        v = values(df, recs, machine, best)
-        (RESULTS / "values.json").write_text(json.dumps({k: x for k, x in v.items() if k != "table"}, indent=1, default=float))
+        lc_figure(df, lc, best, cross)
+        v = values(df, recs, machine, best, qp, lc, cross)
+        (RESULTS / "values.json").write_text(json.dumps({k: x for k, x in v.items() if not k.endswith("table")},
+                                                         indent=1, default=float))
         render(v)
-    print(table(df))
+    print(table(df), pairs_table(qp), lc_table(lc, best), f"best small LLM: {best}; crossing n = {cross}", sep="\n\n")
 
 
 if __name__ == "__main__":

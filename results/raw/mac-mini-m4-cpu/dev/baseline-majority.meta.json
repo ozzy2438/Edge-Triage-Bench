@@ -2,9 +2,9 @@
  "config": "baseline-majority",
  "split": "dev",
  "device": "mac-mini-m4-cpu",
- "load_s": 7.52920750528574e-05,
- "wall_s": 0.7234321250580251,
- "peak_rss_mb": 162.185216,
+ "load_s": 7.637497037649155e-05,
+ "wall_s": 0.7767546670511365,
+ "peak_rss_mb": 161.398784,
  "file_mb": 5.6e-05,
  "machine": {
   "cpu": "Apple M4",
@@ -13,6 +13,14 @@
   "ram_gb": 16,
   "os": "Darwin 27.0.0",
   "threads": 4,
-  "llama_cpp_commit": "1ab7e5a"
+  "llama_cpp_commit": "1ab7e5a",
+  "llama_cpp_build": {
+   "CMAKE_BUILD_TYPE": "Release",
+   "GGML_METAL": "OFF",
+   "GGML_BLAS": "ON",
+   "GGML_BLAS_VENDOR": "Apple",
+   "GGML_CPU_REPACK": "ON",
+   "GGML_NATIVE": "ON"
+  }
  }
 }

@@ -1,11 +1,11 @@
 {
- "config": "baseline-tfidf-lr",
+ "config": "baseline-tfidf-lr-n800",
  "split": "dev",
  "device": "mac-mini-m4-cpu",
- "load_s": 0.006950167007744312,
- "wall_s": 0.6809639998245984,
- "peak_rss_mb": 163.905536,
- "file_mb": 0.90366,
+ "load_s": 0.0013309998903423548,
+ "wall_s": 0.6828098332043737,
+ "peak_rss_mb": 161.792,
+ "file_mb": 0.140812,
  "machine": {
   "cpu": "Apple M4",
   "cores_physical": 10,

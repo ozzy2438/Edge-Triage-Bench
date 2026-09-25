@@ -19,6 +19,15 @@ def bootstrap_ci(y, p, fn, n=1000, seed=SEED) -> tuple[float, float]:
     return tuple(np.percentile(stats, [2.5, 97.5]))
 
 
+def paired_bootstrap(y, pa, pb, fn=macro_f1, n=1000, seed=SEED) -> dict:
+    """fn(a) - fn(b) on the same resampled items; 95% CI and two-sided bootstrap p-value."""
+    y, pa, pb = map(np.asarray, (y, pa, pb))
+    rng = np.random.default_rng(seed)
+    d = np.array([fn(y[i], pa[i]) - fn(y[i], pb[i]) for i in (rng.integers(0, len(y), len(y)) for _ in range(n))])
+    lo, hi = np.percentile(d, [2.5, 97.5])
+    return {"diff": fn(y, pa) - fn(y, pb), "lo": lo, "hi": hi, "p": min(1.0, 2 * min((d <= 0).mean(), (d >= 0).mean()))}
+
+
 def risk_coverage(conf, correct) -> tuple[np.ndarray, np.ndarray]:
     """Coverage k/N and selective accuracy of the k most confident items, for k = 1..N (stable sort)."""
     order = np.argsort(-np.asarray(conf), kind="stable")

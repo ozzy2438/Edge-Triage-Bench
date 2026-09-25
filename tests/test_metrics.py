@@ -3,7 +3,7 @@ import pytest
 from sklearn.metrics import accuracy_score, f1_score
 
 from etb.data import LABEL_NAMES
-from etb.metrics import aurc, bootstrap_ci, ece, macro_f1, risk_coverage, selective_acc, summarise
+from etb.metrics import aurc, bootstrap_ci, ece, macro_f1, paired_bootstrap, risk_coverage, selective_acc, summarise
 
 
 def fake(n=200, seed=0):
@@ -46,6 +46,14 @@ def test_perfect_confidence_ranking_beats_reversed():
 def test_ece():
     assert ece([1.0, 1.0], [1, 1]) == pytest.approx(0.0)
     assert ece([0.9] * 10, [1] * 5 + [0] * 5) == pytest.approx(0.4)
+
+
+def test_paired_bootstrap():
+    y, p, _ = fake()
+    same = paired_bootstrap(y, p, p)
+    assert same["diff"] == same["lo"] == same["hi"] == 0 and same["p"] == 1.0
+    better = paired_bootstrap(y, y, p)
+    assert better["lo"] > 0 and better["p"] < 0.05
 
 
 def test_bootstrap_deterministic():

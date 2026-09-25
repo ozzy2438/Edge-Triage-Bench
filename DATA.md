@@ -1,6 +1,6 @@
 # Data
 
-**Dataset: BANKING77** (fallback). CFPB was the primary choice, but CFPB Release 23 (July 2026) removed consumer complaint narratives from the public database; `complaints.csv.zip` (downloaded 2026-09-25) has no narrative column and the API returns none. See `DECISIONS.md`.
+**Dataset: BANKING77** (fallback). CFPB was the primary choice, but the CFPB stopped publishing complaint narratives ([announcement, 14 Aug 2026](https://www.consumerfinance.gov/about-us/newsroom/the-cfpb-to-cease-discretionary-publication-of-complaint-narratives-and-visualizations/); removed in database Release 24, September 2026); `complaints.csv.zip` (downloaded 2026-09-25) has no narrative column and the API returns none. See `DECISIONS.md`.
 
 - Source: [PolyAI-LDN/task-specific-datasets@9d081458ff](https://github.com/PolyAI-LDN/task-specific-datasets/tree/9d081458ff52e53cf7e848f414e6e9344e4e6696/banking_data) (same files as [PolyAI/banking77](https://huggingface.co/datasets/PolyAI/banking77)), CC-BY-4.0, downloaded 2026-09-25.
 - Raw SHA-256: train `b06e26ac675513959a63135f11b94ea7786ed02da65db93a5650d8838cbc664b`, test `d12d6e3bc4c3103966ae786dc435913c0c563dfa328f5a3646d0e62cfeeb474d`.

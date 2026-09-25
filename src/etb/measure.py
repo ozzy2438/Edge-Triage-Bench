@@ -43,8 +43,19 @@ def _sh(*cmd) -> str:
         return ""
 
 
+BUILD_KEYS = ("CMAKE_BUILD_TYPE", "GGML_METAL", "GGML_BLAS", "GGML_BLAS_VENDOR", "GGML_CPU_REPACK", "GGML_NATIVE")
+
+
+def build_flags() -> dict:
+    cache = LLAMA / "build" / "CMakeCache.txt"
+    kv = dict(l.split(":", 1)[0:1] + l.split("=", 1)[1:] for l in cache.read_text().splitlines()
+              if "=" in l and ":" in l.split("=", 1)[0]) if cache.exists() else {}
+    return {k: kv.get(k) for k in BUILD_KEYS}
+
+
 def machine_info() -> dict:
     cpu = _sh("sysctl", "-n", "machdep.cpu.brand_string") or platform.processor()
     return {"cpu": cpu, "cores_physical": psutil.cpu_count(logical=False), "cores_logical": psutil.cpu_count(),
             "ram_gb": round(psutil.virtual_memory().total / 2**30), "os": f"{platform.system()} {platform.release()}",
-            "threads": THREADS, "llama_cpp_commit": _sh("git", "-C", str(LLAMA), "rev-parse", "--short", "HEAD")}
+            "threads": THREADS, "llama_cpp_commit": _sh("git", "-C", str(LLAMA), "rev-parse", "--short", "HEAD"),
+            "llama_cpp_build": build_flags()}

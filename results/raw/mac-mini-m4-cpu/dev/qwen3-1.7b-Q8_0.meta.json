@@ -14,6 +14,41 @@
   "ram_gb": 16,
   "os": "Darwin 27.0.0",
   "threads": 4,
-  "llama_cpp_commit": "1ab7e5a"
- }
+  "llama_cpp_commit": "1ab7e5a",
+  "llama_cpp_build": {
+   "CMAKE_BUILD_TYPE": "Release",
+   "GGML_METAL": "OFF",
+   "GGML_BLAS": "ON",
+   "GGML_BLAS_VENDOR": "Apple",
+   "GGML_CPU_REPACK": "ON",
+   "GGML_NATIVE": "ON"
+  }
+ },
+ "cold_n": 50,
+ "cold_p50_ms": 1252.9799380572513,
+ "cold_p95_ms": 1339.592779066879,
+ "cold_prompt_n": 421.5,
+ "cold_prompt_tps": 349.1752003721782,
+ "cold_warm_agree": 1.0,
+ "server_args": [
+  "-m",
+  "/Users/osmanorka/edge-triage-bench/models/qwen3-1.7b-Q8_0.gguf",
+  "-t",
+  "4",
+  "-tb",
+  "4",
+  "-ngl",
+  "0",
+  "-c",
+  "1024",
+  "-np",
+  "1",
+  "-s",
+  "42",
+  "-lm",
+  "none",
+  "--no-webui",
+  "--port",
+  "8089"
+ ]
 }

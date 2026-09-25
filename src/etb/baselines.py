@@ -9,23 +9,40 @@ import joblib
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 
 from etb.configs import DEVICE, MODELS_DIR, RAW, SEED
 from etb.measure import PeakRSS, machine_info
-from etb.run import load_split
+from etb.run import load_split, shot_rows
 
-BASELINES = {"baseline-majority": MODELS_DIR / "majority.joblib", "baseline-tfidf-lr": MODELS_DIR / "tfidf_lr.joblib"}
+CURVE = (8, 80, 800)  # learning-curve sizes; the full train split is `baseline-tfidf-lr`
+BASELINES = {"baseline-majority": MODELS_DIR / "majority.joblib", "baseline-tfidf-lr": MODELS_DIR / "tfidf_lr.joblib",
+             **{f"baseline-tfidf-lr-n{n}": MODELS_DIR / f"tfidf_lr_n{n}.joblib" for n in CURVE}}
+
+
+def curve_subset(tr: list[dict], n: int) -> list[dict]:
+    """n=8: the 8 few-shot dev examples the LLMs see. Otherwise a stratified sample of train (fixed seed)."""
+    if n == 8:
+        return shot_rows()
+    sub, _ = train_test_split(tr, train_size=n, stratify=[r["label"] for r in tr], random_state=SEED)
+    return sub
+
+
+def fit_tfidf(rows: list[dict]):
+    # min_df=2 would delete almost the whole vocabulary at 8/80 examples
+    clf = make_pipeline(TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True, min_df=2 if len(rows) >= 800 else 1),
+                        LogisticRegression(C=10, max_iter=2000, random_state=SEED))
+    return clf.fit([r["text"] for r in rows], [r["label"] for r in rows])
 
 
 def train() -> None:
     tr = load_split("train")
-    X, y = [r["text"] for r in tr], [r["label"] for r in tr]
-    top, n = Counter(y).most_common(1)[0]
-    joblib.dump({"label": top, "prior": n / len(y)}, BASELINES["baseline-majority"])
-    clf = make_pipeline(TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True, min_df=2),
-                        LogisticRegression(C=10, max_iter=2000, random_state=SEED))
-    joblib.dump(clf.fit(X, y), BASELINES["baseline-tfidf-lr"])
+    top, n = Counter(r["label"] for r in tr).most_common(1)[0]
+    joblib.dump({"label": top, "prior": n / len(tr)}, BASELINES["baseline-majority"])
+    joblib.dump(fit_tfidf(tr), BASELINES["baseline-tfidf-lr"])
+    for n in CURVE:
+        joblib.dump(fit_tfidf(curve_subset(tr, n)), BASELINES[f"baseline-tfidf-lr-n{n}"])
 
 
 def infer(name: str, split: str) -> None:

@@ -94,8 +94,10 @@ def build() -> dict:
 
 def write_md(info: dict) -> None:
     L = ["# Data", "",
-         "**Dataset: BANKING77** (fallback). CFPB was the primary choice, but CFPB Release 23 (July 2026) removed "
-         "consumer complaint narratives from the public database; `complaints.csv.zip` (downloaded 2026-09-25) "
+         "**Dataset: BANKING77** (fallback). CFPB was the primary choice, but the CFPB stopped publishing complaint "
+         "narratives ([announcement, 14 Aug 2026](https://www.consumerfinance.gov/about-us/newsroom/the-cfpb-to-cease-"
+         "discretionary-publication-of-complaint-narratives-and-visualizations/); removed in database Release 24, "
+         "September 2026); `complaints.csv.zip` (downloaded 2026-09-25) "
          "has no narrative column and the API returns none. See `DECISIONS.md`.", "",
          f"- Source: [PolyAI-LDN/task-specific-datasets@{COMMIT[:10]}](https://github.com/PolyAI-LDN/task-specific-datasets/tree/{COMMIT}/banking_data) "
          "(same files as [PolyAI/banking77](https://huggingface.co/datasets/PolyAI/banking77)), CC-BY-4.0, downloaded 2026-09-25.",

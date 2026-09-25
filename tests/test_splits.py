@@ -25,6 +25,16 @@ def test_sizes_labels_and_no_overlap():
         assert not ids[a] & ids[b] and not texts[a] & texts[b], (a, b)
 
 
+def test_learning_curve_subsets():
+    from etb.baselines import CURVE, curve_subset
+
+    tr, test = load("train"), {norm(r["text"]) for r in load("test")}
+    for n in CURVE:
+        sub = curve_subset(tr, n)
+        assert len(sub) == n and {r["label"] for r in sub} == set(LABEL_NAMES)
+        assert not {norm(r["text"]) for r in sub} & test
+
+
 def test_hashes_match_data_md():
     md = (ROOT / "DATA.md").read_text()
     for n in ("train", "dev", "test"):

@@ -6,6 +6,7 @@ import sys
 import time
 
 import httpx
+import numpy as np
 
 from etb.configs import CTX, DEVICE, LLAMA_BIN, MAX_NARRATIVE_TOKENS, PROCESSED, RAW, SEED, THREADS, configs, gguf_path
 from etb.data import LABELS, LABEL_NAMES
@@ -13,6 +14,7 @@ from etb.measure import PeakRSS, machine_info
 
 PORT = 8089
 URL = f"http://127.0.0.1:{PORT}"
+COLD_N = 50  # first 50 items of the split (file order) get a second, cache-free pass
 # Model-facing label words: chosen so each starts with a distinct first token, so first-token probs are per-label.
 WORDS = dict(zip(LABEL_NAMES, ["NewCard", "CardIssue", "Payment", "ATM", "TopUp", "Transfer", "Exchange", "Account"]))
 GRAMMAR = "root ::= " + " | ".join(f'"{w}"' for w in WORDS.values())
@@ -21,13 +23,15 @@ SYSTEM = ("You are a triage assistant for a digital bank's customer support team
           + "\n".join(f"{w}: {LABELS[name][0]}" for name, w in WORDS.items()))
 
 
-def few_shot() -> list[dict]:
-    """One dev example per label (first by id), as prior chat turns. Dev-only by construction."""
+def shot_rows() -> list[dict]:
+    """One dev example per label (first by id), sorted by id. Dev-only by construction."""
     rows = [json.loads(line) for line in open(PROCESSED / "dev.jsonl")]
-    shots = [next(r for r in rows if r["label"] == name) for name in LABEL_NAMES]
-    shots.sort(key=lambda r: r["id"])  # interleave labels so the last shot is not systematically one class
-    return [m for r in shots for m in ({"role": "user", "content": f"Customer message: {r['text']}"},
-                                       {"role": "assistant", "content": WORDS[r["label"]]})]
+    return sorted((next(r for r in rows if r["label"] == name) for name in LABEL_NAMES), key=lambda r: r["id"])
+
+
+def few_shot() -> list[dict]:
+    return [m for r in shot_rows() for m in ({"role": "user", "content": f"Customer message: {r['text']}"},
+                                             {"role": "assistant", "content": WORDS[r["label"]]})]
 
 
 SHOTS = few_shot()
@@ -89,13 +93,13 @@ class Server:
             return text, len(toks), False
         return self.post("/detokenize", tokens=toks[:MAX_NARRATIVE_TOKENS])["content"], len(toks), True
 
-    def classify(self, text: str) -> dict:
+    def classify(self, text: str, cache: bool = True) -> dict:
         msgs = [{"role": "system", "content": SYSTEM}, *SHOTS, {"role": "user", "content": f"Customer message: {text}"}]
         prompt = self.post("/apply-template", messages=msgs,
                            chat_template_kwargs={"enable_thinking": False})["prompt"]
         t0 = time.perf_counter()
         r = self.post("/completion", prompt=prompt, n_predict=6, temperature=0, seed=SEED, grammar=GRAMMAR,
-                      n_probs=50, cache_prompt=True)
+                      n_probs=50, cache_prompt=cache)
         lat = time.perf_counter() - t0
         probs, mass = label_probs(r["completion_probabilities"][0]["top_logprobs"])
         pred = parse_label(r["content"])
@@ -116,25 +120,38 @@ def run(config: str, split: str) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     done = {json.loads(l)["id"] for l in open(out)} if out.exists() else set()
     todo = [it for it in items if it["id"] not in done]
-    if not todo:
-        return print(f"{config}/{split}: complete")
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"wall_s": 0.0, "peak_rss_mb": 0.0}
-    with Server(config) as srv, open(out, "a") as f:
+    if not todo and "cold_p50_ms" in meta:
+        return print(f"{config}/{split}: complete")
+    with Server(config) as srv:
         for it in load_split("dev")[:3]:  # warm-up, discarded
             srv.classify(it["text"])
-        t0 = time.perf_counter()
-        for i, it in enumerate(todo):
-            text, ntok, trunc = srv.truncate(it["text"])
-            rec = {"id": it["id"], "label": it["label"], "n_tokens": ntok, "truncated": trunc, **srv.classify(text)}
-            f.write(json.dumps(rec) + "\n")
-            f.flush()
-            if i % 50 == 0:
-                print(f"{config}/{split}: {len(done) + i + 1}/{len(items)}", flush=True)
-        meta.update(config=config, split=split, device=DEVICE, load_s=srv.load_s,
-                    wall_s=meta["wall_s"] + time.perf_counter() - t0,
-                    peak_rss_mb=max(meta["peak_rss_mb"], srv.rss.peak_mb),
-                    file_mb=gguf_path(config).stat().st_size / 1e6, resumed=bool(done), machine=machine_info())
+        if todo:
+            t0 = time.perf_counter()
+            with open(out, "a") as f:
+                for i, it in enumerate(todo):
+                    text, ntok, trunc = srv.truncate(it["text"])
+                    rec = {"id": it["id"], "label": it["label"], "n_tokens": ntok, "truncated": trunc, **srv.classify(text)}
+                    f.write(json.dumps(rec) + "\n")
+                    f.flush()
+                    if i % 50 == 0:
+                        print(f"{config}/{split}: {len(done) + i + 1}/{len(items)}", flush=True)
+            meta.update(wall_s=meta["wall_s"] + time.perf_counter() - t0, resumed=bool(done), load_s=srv.load_s)
+        meta.update(cold_latency(srv, items[:COLD_N], {json.loads(l)["id"]: json.loads(l) for l in open(out)}))
+        meta.update(config=config, split=split, device=DEVICE, peak_rss_mb=max(meta["peak_rss_mb"], srv.rss.peak_mb),
+                    file_mb=gguf_path(config).stat().st_size / 1e6, server_args=[str(a) for a in srv.cmd[1:]],
+                    machine=machine_info())
     meta_path.write_text(json.dumps(meta, indent=1))
+
+
+def cold_latency(srv: Server, items: list[dict], warm: dict) -> dict:
+    """Full-prompt latency (no KV-cache reuse) on a fixed subset; also checks predictions match the warm run."""
+    recs = [srv.classify(srv.truncate(it["text"])[0], cache=False) for it in items]
+    lat = np.array([r["latency_s"] for r in recs]) * 1000
+    return {"cold_n": len(recs), "cold_p50_ms": float(np.percentile(lat, 50)), "cold_p95_ms": float(np.percentile(lat, 95)),
+            "cold_prompt_n": float(np.median([r["prompt_n"] for r in recs])),
+            "cold_prompt_tps": float(np.median([r["prompt_tps"] for r in recs])),
+            "cold_warm_agree": float(np.mean([r["pred"] == warm[it["id"]]["pred"] for r, it in zip(recs, items)]))}
 
 
 if __name__ == "__main__":
