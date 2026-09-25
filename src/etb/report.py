@@ -9,15 +9,12 @@ import matplotlib.ticker
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import subprocess
-
 import numpy as np
 
-from etb.baselines import CURVE
+from etb.baselines import CURVE, seeded_curve
 from etb.configs import DEVICE, FIGS, MODELS, QUANTS, RAW, REFERENCE, RESULTS, ROOT, model_of
 from etb.data import LABEL_NAMES
-from etb.metrics import paired_bootstrap, reliability, risk_coverage, summarise
-from etb.run import load_split
+from etb.metrics import holm, paired_bootstrap, reliability, risk_coverage, summarise
 
 BASE = {"baseline-majority": "Majority class", "baseline-tfidf-lr": "TF-IDF + LogReg (full train)",
         **{f"baseline-tfidf-lr-n{n}": f"TF-IDF + LogReg (n={n})" for n in CURVE}}
@@ -148,40 +145,56 @@ def quant_pairs(df, recs) -> pd.DataFrame:
             a, b = f"{m}-{hi}", f"{m}-{lo}"
             if a in recs and b in recs:
                 rows.append({"model": m, "from": hi, "to": lo, **paired(recs, b, a)})
-    return pd.DataFrame(rows)
+    qp = pd.DataFrame(rows)
+    qp["p_holm"] = holm(qp["p"]) if len(qp) else []
+    return qp
 
 
-def learning_curve(df, recs, best) -> tuple[pd.DataFrame, float | None]:
-    """TF-IDF macro-F1 by training size, paired against the best small LLM; interpolated crossing point (log n)."""
-    n_full = len(load_split("train"))
-    pts = [(n, f"baseline-tfidf-lr-n{n}") for n in CURVE] + [(n_full, "baseline-tfidf-lr")]
-    rows = [{"n": n, "config": c, "macro_f1": df.loc[c].macro_f1, "f1_lo": df.loc[c].f1_lo, "f1_hi": df.loc[c].f1_hi,
-             **{f"vs_best_{k}": v for k, v in paired(recs, c, best).items()}} for n, c in pts if c in df.index]
+def learning_curve(df, best):
+    """Post-hoc curve: mean ± SD over 5 stratified seeds. Crossing is interpolated on the means."""
+    seeds = seeded_curve()
+    rows = []
+    prompt = seeds[seeds.kind == "prompt"].iloc[0]
+    rows.append({"n": 8, "name": "8 (the prompt examples)", "k": 1, "macro_f1": prompt.macro_f1, "sd": np.nan})
+    for n, g in seeds[seeds.kind == "stratified"].groupby("n"):
+        rows.append({"n": int(n), "name": f"{int(n)}", "k": len(g), "macro_f1": g.macro_f1.mean(), "sd": g.macro_f1.std(ddof=1)})
+    full = seeds[seeds.kind == "full"].iloc[0]
+    rows.append({"n": int(full.n), "name": f"{int(full.n):,} (full train)", "k": 1, "macro_f1": full.macro_f1, "sd": np.nan})
     lc = pd.DataFrame(rows)
-    target, cross = df.loc[best].macro_f1, None
-    for (n0, f0), (n1, f1) in zip(lc[["n", "macro_f1"]].values, lc[["n", "macro_f1"]].values[1:]):
+    target = df.loc[best].macro_f1
+    curve = lc[~lc.name.str.contains("prompt")]
+    cross = lo = hi = None
+    pts = list(curve[["n", "macro_f1"]].itertuples(index=False))
+    for (n0, f0), (n1, f1) in zip(pts, pts[1:]):
         if f0 < target <= f1:
+            lo, hi = int(n0), int(n1)
             cross = float(np.exp(np.log(n0) + (target - f0) / (f1 - f0) * (np.log(n1) - np.log(n0))))
             break
-    if cross is None and len(lc) and lc.macro_f1.iloc[0] >= target:
-        cross = float(lc.n.iloc[0])
-    return lc, cross
+    return lc, cross, lo, hi
+
+
+def crossing_phrase(cross, lo, hi) -> str:
+    if cross is None:
+        return "at a training size the curve does not bracket"
+    return f"between {lo:,} and {hi:,} examples (interpolated ≈ {cross:,.0f})"
 
 
 def lc_figure(df, lc, best, cross):
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.errorbar(lc.n, lc.macro_f1, yerr=[lc.macro_f1 - lc.f1_lo, lc.f1_hi - lc.macro_f1], marker="*", ms=9,
-                color="black", capsize=3, label="TF-IDF + LogReg")
+    fig, ax = plt.subplots(figsize=(6.2, 4.2))
+    seeded = lc[lc.k > 1]
+    ax.errorbar(seeded.n, seeded.macro_f1, yerr=seeded.sd, marker="o", color="black", capsize=3,
+                label="TF-IDF, mean ± SD (5 seeds)")
+    single = lc[lc.k == 1]
+    ax.scatter(single.n, single.macro_f1, marker="*", s=90, color="black", label="TF-IDF, single training set", zorder=3)
     for cfg, ls in [(best, "-"), (f"{REFERENCE}-Q4_K_M", ":")]:
         if cfg in df.index:
-            r = df.loc[cfg]
-            ax.axhline(r.macro_f1, color=COLORS[model_of(cfg)], ls=ls, label=f"{cfg} (8-shot)")
-            ax.axhspan(r.f1_lo, r.f1_hi, color=COLORS[model_of(cfg)], alpha=0.1)
+            ax.axhline(df.loc[cfg].macro_f1, color=COLORS[model_of(cfg)], ls=ls, label=f"{cfg} (8-shot)")
     if cross:
-        ax.axvline(cross, color="orange", ls="--", lw=1, label=f"crossing = {cross:,.0f} examples")
+        ax.axvline(cross, color="orange", ls="--", lw=1, label=f"interpolated ≈ {cross:,.0f}")
     ax.set_xscale("log")
-    ax.set_xlabel("TF-IDF training examples (log; n=8 = the LLMs' few-shot examples)")
-    ax.set_ylabel("Macro-F1 (test, 95% CI)")
+    ax.set_xlabel("TF-IDF training examples (log scale)")
+    ax.set_ylabel("Macro-F1 on the frozen test set")
+    ax.set_title("Post-hoc, added after the test run", fontsize=9)
     ax.grid(alpha=0.3)
     ax.legend(fontsize=7, loc="lower right")
     fig.tight_layout()
@@ -199,6 +212,8 @@ def ms(x) -> str:
 
 
 def table(df) -> str:
+    # single-n TF-IDF rows are the learning curve, reported there as mean ± SD
+    df = df.loc[~df.index.str.startswith("baseline-tfidf-lr-n")]
     return md(df.sort_values("macro_f1", ascending=False).reset_index(), {
         "Config": lambda r: label(r.config),
         "Macro-F1 [95% CI]": lambda r: f"{r.macro_f1:.3f} [{r.f1_lo:.3f}, {r.f1_hi:.3f}]",
@@ -210,36 +225,87 @@ def table(df) -> str:
         "Cold p50 / p95 ms": lambda r: f"{ms(r.cold_p50_ms)} / {ms(r.cold_p95_ms)}"})
 
 
+def fmt_p(p) -> str:
+    return "<0.001" if p == 0 else f"{p:.3f}"
+
+
 def pairs_table(qp) -> str:
     return md(qp, {"Model": lambda r: r.model, "Step": lambda r: f"{r['from']} → {r['to']}",
                    "ΔMacro-F1 [95% CI]": lambda r: f"{r['diff']:+.3f} [{r.lo:+.3f}, {r.hi:+.3f}]",
-                   "p": lambda r: f"{r.p:.3f}", "Significant (CI excludes 0)": lambda r: "yes" if r.lo > 0 or r.hi < 0 else "no"})
+                   "p": lambda r: fmt_p(r.p), "p Holm": lambda r: fmt_p(r.p_holm),
+                   "Holds after Holm": lambda r: "yes" if r.p_holm <= 0.05 else "no"})
 
 
-def lc_table(lc, best) -> str:
-    return md(lc, {"Train examples": lambda r: f"{int(r.n):,}", "Macro-F1 [95% CI]": lambda r: f"{r.macro_f1:.3f} [{r.f1_lo:.3f}, {r.f1_hi:.3f}]",
-                   f"Δ vs {best} [95% CI]": lambda r: f"{r.vs_best_diff:+.3f} [{r.vs_best_lo:+.3f}, {r.vs_best_hi:+.3f}]",
-                   "p": lambda r: f"{r.vs_best_p:.3f}"})
+def lc_table(lc, best, best_f1) -> str:
+    def sd(r):
+        return "–" if pd.isna(r.sd) else f"{r.sd:.3f}"
+    return md(lc, {"Train examples": lambda r: str(r["name"]), "Seeds": lambda r: str(int(r.k)),
+                   "Macro-F1 mean": lambda r: f"{r.macro_f1:.3f}", "SD": sd,
+                   f"Mean − {best}": lambda r: f"{r.macro_f1 - best_f1:+.3f}"})
 
 
-def values(df, recs, machine, best, qp, lc, cross) -> dict:
+def quant_note(qp) -> str:
+    """Prose that follows the Holm results, so a contrast is only called real when it survives."""
+    def step(model, to):
+        return qp[(qp.model == model) & (qp["to"] == to)].iloc[0]
+
+    q3 = qp[qp["to"] == "Q3_K_M"]
+    q3_txt = ", ".join(f"{r['diff']:+.3f}" for _, r in q3.iterrows())
+    parts = [f"Of {len(qp)} adjacent steps, {(qp.p_holm <= 0.05).sum()} stay significant after a Holm correction "
+             f"across all {len(qp)} (α = 0.05)."]
+    if (qp[qp["to"] == "Q8_0"].p_holm > 0.05).all():
+        parts.append("F16 → Q8_0 is not significant for any model, and it halves memory.")
+    if (q3.p_holm <= 0.05).all() and (q3["diff"] < 0).all():
+        parts.append(f"Q4_K_M → Q3_K_M stays a significant drop for all three ({q3_txt}).")
+    else:
+        parts.append("Q4_K_M → Q3_K_M is not significant for every model after Holm; see the table.")
+    mid = step("qwen3-1.7b", "Q4_K_M")
+    rev = step("qwen3-0.6b", "Q4_K_M")
+    if mid.p_holm <= 0.05:
+        parts.append(f"Qwen3-1.7B drops {abs(mid['diff']):.3f} at Q5_K_M → Q4_K_M (Holm p {fmt_p(mid.p_holm)}).")
+    else:
+        parts.append(f"Qwen3-1.7B's Q5_K_M → Q4_K_M change ({mid['diff']:+.3f}, uncorrected p {fmt_p(mid.p)}) "
+                     f"does not survive Holm (p {fmt_p(mid.p_holm)}).")
+    if rev.p_holm <= 0.05:
+        parts.append(f"Qwen3-0.6B at Q5_K_M remains worse than at Q4_K_M after Holm "
+                     f"(Q4 is {abs(rev['diff']):.3f} higher, p {fmt_p(rev.p_holm)}).")
+    else:
+        parts.append(f"Qwen3-0.6B Q5_K_M vs Q4_K_M ({rev['diff']:+.3f}, uncorrected p {fmt_p(rev.p)}) "
+                     f"does not survive Holm (p {fmt_p(rev.p_holm)}); that reversal is suggestive only.")
+    parts.append("Each quantised file still has to be tested; bit count alone is not a reliable guide.")
+    return " ".join(parts)
+
+
+def values(df, recs, machine, best, qp, lc, cross, lo, hi) -> dict:
     """Named numbers available to the README/MEMO templates."""
     b = machine.get("llama_cpp_build", {})
-    v = {"table": table(df), "pairs_table": pairs_table(qp), "lc_table": lc_table(lc, best), "best": best,
-         "crossing_n": cross if cross is not None else float("nan"),
-         "protocol_commit": subprocess.run(["git", "log", "-1", "--format=%h", "--", "PROTOCOL.md"], cwd=ROOT,
-                                           capture_output=True, text=True).stdout.strip(),
+    best_f1 = float(df.loc[best].macro_f1)
+    llm = df[df.model != "baseline"]
+    phrase = crossing_phrase(cross, lo, hi)
+    smoke = json.loads((RESULTS / "smoke.json").read_text()) if (RESULTS / "smoke.json").exists() else None
+    v = {"table": table(df), "pairs_table": pairs_table(qp), "lc_table": lc_table(lc, best, best_f1),
+         "best": best, "crossing_phrase": phrase, "quant_note": quant_note(qp),
+         "headline": (f"An 8-shot 1.7B model (macro-F1 {best_f1:.3f}) beats TF-IDF trained on the same 8 examples, "
+                      f"but TF-IDF overtakes it {phrase}."),
+         # pinned: the commit that froze PROTOCOL.md before the test run. Later edits are marked post-hoc.
+         "protocol_commit": "8d3df10",
          "machine": f"{machine['cpu']}, {machine['cores_logical']} cores, {machine['ram_gb']} GB RAM, {machine['os']}",
          "runtime": f"llama.cpp `{machine['llama_cpp_commit']}` ({b.get('CMAKE_BUILD_TYPE')}, GGML_METAL={b.get('GGML_METAL')}, "
                     f"GGML_BLAS={b.get('GGML_BLAS')} ({b.get('GGML_BLAS_VENDOR')}), GGML_CPU_REPACK={b.get('GGML_CPU_REPACK')}), "
                     f"`llama-server -ngl 0 -t {machine['threads']} -tb {machine['threads']}`",
-         "total_wall_min": df.wall_s.sum() / 60, "n_sig_pairs": int(((qp.lo > 0) | (qp.hi < 0)).sum()), "n_pairs": len(qp)}
+         "warm_min": float(llm.wall_s.sum()) / 60,
+         "cold_min": float((llm.cold_p50_ms / 1000 * 50).sum()) / 60,
+         "cold_share": float((llm.cold_p50_ms / 1000 * 50).sum()) / float(llm.wall_s.sum() + (llm.cold_p50_ms / 1000 * 50).sum()),
+         "smoke_line": (f"ran from a fresh clone: {smoke['config']} on {smoke['n']} dev items "
+                        f"(macro-F1 {smoke['llm_macro_f1']:.3f}, median {smoke['llm_lat_p50_ms']:.0f} ms) and TF-IDF "
+                        f"on the same items (macro-F1 {smoke['tfidf_macro_f1']:.3f})." if smoke else "not run yet.")}
     for _, r in qp.iterrows():
         v[f"pair__{r.model.replace('-', '_').replace('.', '')}__{r['to']}"] = r["diff"]
         v[f"pair__{r.model.replace('-', '_').replace('.', '')}__{r['to']}__p"] = r.p
     for _, r in lc.iterrows():
-        v[f"lc__{int(r.n)}__vs_best_p"] = r.vs_best_p
-        v[f"lc__{int(r.n)}__vs_best_diff"] = r.vs_best_diff
+        key = "prompt" if "prompt" in str(r["name"]) else ("full" if "full" in str(r["name"]) else str(int(r.n)))
+        v[f"lc__{key}__f1"] = float(r.macro_f1)
+        v[f"lc__{key}__diff"] = float(r.macro_f1 - best_f1)
     for cfg, r in df.iterrows():
         k = cfg.replace("-", "_").replace(".", "")
         for m in ["macro_f1", "accuracy", "sel_acc@50", "sel_acc@70", "sel_acc@90", "ece", "aurc", "peak_rss_mb",
@@ -271,18 +337,20 @@ def main(split="test"):
     df.drop(columns=per_class).round(4).to_csv(out)
     df[per_class].round(4).to_csv(RESULTS / f"per_class_f1_{split}.csv")
     qp = quant_pairs(df, recs)
-    lc, cross = learning_curve(df, recs, best)
+    lc, cross, lo, hi = learning_curve(df, best) if split == "test" else (None, None, None, None)
     sfx = "" if split == "test" else f"_{split}"
     qp.round(4).to_csv(RESULTS / f"paired_quant{sfx}.csv", index=False)
-    lc.round(4).to_csv(RESULTS / f"learning_curve{sfx}.csv", index=False)
     if split == "test":
+        lc.round(4).to_csv(RESULTS / "learning_curve.csv", index=False)
         figures(df, recs, best)
         lc_figure(df, lc, best, cross)
-        v = values(df, recs, machine, best, qp, lc, cross)
+        v = values(df, recs, machine, best, qp, lc, cross, lo, hi)
         (RESULTS / "values.json").write_text(json.dumps({k: x for k, x in v.items() if not k.endswith("table")},
                                                          indent=1, default=float))
         render(v)
-    print(table(df), pairs_table(qp), lc_table(lc, best), f"best small LLM: {best}; crossing n = {cross}", sep="\n\n")
+        print(lc_table(lc, best, df.loc[best].macro_f1), quant_note(qp), v["crossing_phrase"],
+              f"cold {v['cold_min']:.0f} min, {v['cold_share']:.0%} of warm+cold", sep="\n\n")
+    print(table(df), pairs_table(qp), sep="\n\n")
 
 
 if __name__ == "__main__":

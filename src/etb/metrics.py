@@ -28,6 +28,17 @@ def paired_bootstrap(y, pa, pb, fn=macro_f1, n=1000, seed=SEED) -> dict:
     return {"diff": fn(y, pa) - fn(y, pb), "lo": lo, "hi": hi, "p": min(1.0, 2 * min((d <= 0).mean(), (d >= 0).mean()))}
 
 
+def holm(pvals) -> np.ndarray:
+    """Holm adjusted p-values (step-down, monotonic). Reject when the adjusted p is <= 0.05."""
+    p = np.asarray(pvals, float)
+    adj = np.empty(len(p))
+    running = 0.0
+    for rank, i in enumerate(np.argsort(p, kind="stable")):
+        running = min(1.0, max(running, p[i] * (len(p) - rank)))
+        adj[i] = running
+    return adj
+
+
 def risk_coverage(conf, correct) -> tuple[np.ndarray, np.ndarray]:
     """Coverage k/N and selective accuracy of the k most confident items, for k = 1..N (stable sort)."""
     order = np.argsort(-np.asarray(conf), kind="stable")

@@ -1,7 +1,7 @@
 LLAMA_COMMIT := 1ab7e5ad2d4e7295c94c3b966a3e0b70fa365865
 PY := uv run python -m
 
-.PHONY: all llama data models bench-dev bench report test
+.PHONY: all llama data models bench-dev bench report test smoke
 
 all: llama data models bench report
 
@@ -30,3 +30,7 @@ report:
 
 test:
 	uv run pytest -q
+
+smoke: llama data
+	$(PY) etb.quantise qwen3-0.6b:Q4_K_M
+	$(PY) etb.smoke

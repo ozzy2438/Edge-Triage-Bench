@@ -16,17 +16,17 @@ from etb.configs import DEVICE, MODELS_DIR, RAW, SEED
 from etb.measure import PeakRSS, machine_info
 from etb.run import load_split, shot_rows
 
-CURVE = (8, 80, 800)  # learning-curve sizes; the full train split is `baseline-tfidf-lr`
+CURVE = (8, 80, 800)  # single models in the main bench; n=8 is the prompt examples, not a sample
+SEEDED = (8, 80, 200, 400, 800)  # post-hoc curve, 5 stratified seeds each
+SEEDS = tuple(range(SEED, SEED + 5))
 BASELINES = {"baseline-majority": MODELS_DIR / "majority.joblib", "baseline-tfidf-lr": MODELS_DIR / "tfidf_lr.joblib",
              **{f"baseline-tfidf-lr-n{n}": MODELS_DIR / f"tfidf_lr_n{n}.joblib" for n in CURVE}}
 
 
-def curve_subset(tr: list[dict], n: int) -> list[dict]:
-    """n=8: the 8 few-shot dev examples the LLMs see. Otherwise a stratified sample of train (fixed seed)."""
-    if n == 8:
-        return shot_rows()
-    sub, _ = train_test_split(tr, train_size=n, stratify=[r["label"] for r in tr], random_state=SEED)
-    return sub
+def curve_subset(tr: list[dict], n: int, seed: int = SEED) -> list[dict]:
+    """Stratified sample of the training split. n=8 is one example per label."""
+    sub, _ = train_test_split(tr, train_size=n, stratify=[r["label"] for r in tr], random_state=seed)
+    return list(sub)
 
 
 def fit_tfidf(rows: list[dict]):
@@ -41,8 +41,10 @@ def train() -> None:
     top, n = Counter(r["label"] for r in tr).most_common(1)[0]
     joblib.dump({"label": top, "prior": n / len(tr)}, BASELINES["baseline-majority"])
     joblib.dump(fit_tfidf(tr), BASELINES["baseline-tfidf-lr"])
+    joblib.dump(fit_tfidf(shot_rows()), BASELINES["baseline-tfidf-lr-n8"])
     for n in CURVE:
-        joblib.dump(fit_tfidf(curve_subset(tr, n)), BASELINES[f"baseline-tfidf-lr-n{n}"])
+        if n != 8:
+            joblib.dump(fit_tfidf(curve_subset(tr, n)), BASELINES[f"baseline-tfidf-lr-n{n}"])
 
 
 def infer(name: str, split: str) -> None:
@@ -63,6 +65,27 @@ def infer(name: str, split: str) -> None:
             f.write(json.dumps({"id": it["id"], "label": it["label"], "pred": pred, "invalid": False, "conf": conf,
                                 "probs": probs, "latency_s": time.perf_counter() - t}) + "\n")
     print(load_s)
+
+
+def seeded_curve(split: str = "test"):
+    """Post-hoc: macro-F1 at each training size over 5 stratified seeds. Does not touch the LLM results."""
+    import pandas as pd
+
+    from etb.configs import RESULTS
+    from etb.metrics import macro_f1
+
+    te, tr = load_split(split), load_split("train")
+    X, y = [r["text"] for r in te], [r["label"] for r in te]
+    rows = [{"n": n, "seed": s, "kind": "stratified", "macro_f1": float(macro_f1(y, fit_tfidf(curve_subset(tr, n, s)).predict(X)))}
+            for n in SEEDED for s in SEEDS]
+    rows.append({"n": 8, "seed": -1, "kind": "prompt",
+                 "macro_f1": float(macro_f1(y, fit_tfidf(shot_rows()).predict(X)))})
+    rows.append({"n": len(tr), "seed": SEED, "kind": "full",
+                 "macro_f1": float(macro_f1(y, fit_tfidf(tr).predict(X)))})
+    df = pd.DataFrame(rows)
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    df.to_csv(RESULTS / ("learning_curve_seeds.csv" if split == "test" else f"learning_curve_seeds_{split}.csv"), index=False)
+    return df
 
 
 def run(split: str) -> None:

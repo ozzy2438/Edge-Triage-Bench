@@ -11,11 +11,11 @@
 
 If memory is tight, Q5_K_M is statistically indistinguishable from it (-0.009, p = 0.20) and uses 1,979 MB.
 
-**Once about 407 labelled examples exist, switch to TF-IDF + logistic regression.** It already beats the LLM at 800 examples (+0.101 macro-F1). With the full training split it reaches 0.950, using 165 MB and 0.2 ms. For a closed label set with labelled history, the LLM is not the right tool.
+**Once labelled examples are in the range between 200 and 400 examples (interpolated ≈ 307), switch to TF-IDF + logistic regression.** That range is a post-hoc interpolation (five seeds, added after the test run), not a measured cutoff. At 800 examples the seeded mean is already +0.086 macro-F1 ahead of the LLM. With the full training split TF-IDF reaches 0.950, using 165 MB and 0.2 ms. For a closed label set with labelled history, the LLM is not the right tool.
 
 ## Where does it break?
 
-- **Quantisation.** Q3_K_M is a significant drop for every model (-0.084 for Qwen3-1.7B, -0.165 for SmolLM2). It is also slower than Q4_K_M on this CPU, so it saves memory and nothing else. Below Q8_0 the losses are model-specific, so every quantised file needs its own test.
+- **Quantisation.** Of 12 adjacent steps, 7 stay significant after a Holm correction across all 12 (α = 0.05). F16 → Q8_0 is not significant for any model, and it halves memory. Q4_K_M → Q3_K_M stays a significant drop for all three (-0.143, -0.084, -0.165). Qwen3-1.7B drops 0.048 at Q5_K_M → Q4_K_M (Holm p <0.001). Qwen3-0.6B at Q5_K_M remains worse than at Q4_K_M after Holm (Q4 is 0.048 higher, p <0.001). Each quantised file still has to be tested; bit count alone is not a reliable guide. Q3_K_M is also slower than Q4_K_M on this CPU, so it saves memory and nothing else.
 - **Model size.** Qwen3-0.6B tops out at 0.616. That's too weak to route unsupervised.
 - **Classes.** The weakest class for `qwen3-1.7b-Q8_0` is `card_problem` (F1 0.652). It is mostly misrouted to `account` (10) and `card_setup` (9).
 - **Latency without a cache.** A cold full prompt costs about 10× a warm one, and the 8B reference needs 7,679 ms cold. Deployments must keep the few-shot prefix cached.

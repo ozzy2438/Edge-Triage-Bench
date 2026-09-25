@@ -29,3 +29,10 @@
 **Primary outcome.** Macro-F1 on `test` against peak RSS and p50 latency, and the TF-IDF learning-curve crossing point.
 
 **Re-run rule.** If a bug is found after the test run, it is logged in `DECISIONS.md` and every configuration is re-run.
+
+## Post-hoc analyses
+
+Added after the test run, once the results above were already in hand. Not part of the frozen protocol (commit `8d3df10`).
+
+- **Learning curve.** Training sizes 200 and 400 were added, and every size in {8, 80, 200, 400, 800} was repeated over 5 stratified seeds (42–46). Reported as mean ± SD. The crossover quoted in the README is an interpolation on those means, between the two measured sizes that bracket the best small LLM. The original single-seed curve (8 prompt examples, 80, 800, full train) is unchanged.
+- **Holm correction.** The 12 adjacent quantisation comparisons are reported with Holm-adjusted p-values. README claims of a quantisation difference require the adjusted p to be at most 0.05. The uncorrected intervals are still in the table.

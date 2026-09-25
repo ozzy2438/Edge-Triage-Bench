@@ -3,7 +3,7 @@ import pytest
 from sklearn.metrics import accuracy_score, f1_score
 
 from etb.data import LABEL_NAMES
-from etb.metrics import aurc, bootstrap_ci, ece, macro_f1, paired_bootstrap, risk_coverage, selective_acc, summarise
+from etb.metrics import aurc, bootstrap_ci, ece, holm, macro_f1, paired_bootstrap, risk_coverage, selective_acc, summarise
 
 
 def fake(n=200, seed=0):
@@ -54,6 +54,13 @@ def test_paired_bootstrap():
     assert same["diff"] == same["lo"] == same["hi"] == 0 and same["p"] == 1.0
     better = paired_bootstrap(y, y, p)
     assert better["lo"] > 0 and better["p"] < 0.05
+
+
+def test_holm_stops_after_the_first_failure():
+    # sorted 0.01, 0.03, 0.04 against 0.05/3, 0.05/2, 0.05; only the first survives
+    adj = holm([0.04, 0.01, 0.03])
+    assert adj[1] == pytest.approx(0.03) and adj[2] == pytest.approx(0.06) and adj[0] == pytest.approx(0.06)
+    assert list(adj <= 0.05) == [False, True, False]
 
 
 def test_bootstrap_deterministic():

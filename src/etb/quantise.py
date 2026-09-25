@@ -20,7 +20,7 @@ def sha256(path, chunk=1 << 24) -> str:
     return h.hexdigest()
 
 
-def build(name: str) -> None:
+def build(name: str, quants=None) -> None:
     repo, rev, _, _ = MODELS[name]
     hf_dir = MODELS_DIR / "hf" / name
     hf_dir.mkdir(parents=True, exist_ok=True)
@@ -36,8 +36,7 @@ def build(name: str) -> None:
         env = {**os.environ, "PYTHONPATH": str(LLAMA / "gguf-py")}
         subprocess.run([sys.executable, LLAMA / "convert_hf_to_gguf.py", hf_dir,
                         "--outtype", "f16", "--outfile", f16], check=True, env=env)
-    quants = REFERENCE_QUANTS if name == REFERENCE else QUANTS
-    for q in quants:
+    for q in quants or (REFERENCE_QUANTS if name == REFERENCE else QUANTS):
         out = gguf_path(f"{name}-{q}")
         if q != "F16" and not out.exists():
             subprocess.run([LLAMA_BIN / "llama-quantize", f16, out, q], check=True,
@@ -64,6 +63,7 @@ def write_manifest() -> None:
 
 if __name__ == "__main__":
     MODELS_DIR.mkdir(exist_ok=True)
-    for name in sys.argv[1:] or MODELS:
-        build(name)
+    for spec in sys.argv[1:] or list(MODELS):
+        name, _, quant = spec.partition(":")
+        build(name, [quant] if quant else None)
     write_manifest()
